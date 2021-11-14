@@ -333,10 +333,10 @@ def AutomaticPicking(D,threshold,num,fig):
     Xdf=Xdf.sort_values(by=['freq'])
     X = Xdf[['freq','vel']].to_numpy()
     scaler = StandardScaler()
-    poly = PolynomialFeatures(2)
+    poly = PolynomialFeatures(5)
     scaler.fit(poly.fit_transform(X))
     X_scaled = scaler.transform(poly.fit_transform(X))
-    dbscan = DBSCAN(eps=0.5)
+    dbscan = DBSCAN(eps=1.0,min_samples=1000)
     clusters = dbscan.fit_predict(X_scaled)
     # Classification
     df1 = pd.DataFrame(np.concatenate((clusters.reshape(np.size(clusters),1),X_scaled),axis=1))
@@ -371,7 +371,7 @@ def AutomaticPicking(D,threshold,num,fig):
         fig, axs = plt.subplots(2, 2)
         axs[0, 0].set_title("Binarization (threshold=0.8)")
         axs[0, 0].plot(X[:, 0], X[:, 1],'o',color='red')
-        axs[0, 1].set_title("Clustering with DBSCAN (eps=0.5, poly=2)")
+        axs[0, 1].set_title("Clustering with DBSCAN (eps=0.5, poly=5)")
         axs[0, 1].scatter(X[:, 0], X[:, 1], c=clusters, s=60)
         axs[1, 0].set_title("Cluster selection")
         D.plot.imshow(D.dims[1],D.dims[0],cmap='viridis', origin='lower',add_colorbar=False, ax=axs[1,0])
@@ -382,4 +382,4 @@ def AutomaticPicking(D,threshold,num,fig):
         for ax in axs.flat:
             ax.set(xlabel='Frequency (Hz)', ylabel='Phase velocity (m/s)')
     return(pts)
-    
+
