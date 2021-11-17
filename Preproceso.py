@@ -53,14 +53,14 @@ shot_pos[['Azimuth']].plot.hist()
 # Show receivers fro the source 1000 with azimuth from 90 to 110.
 
 # In[5]:
-
-az_1=90 
-az_2=110                  #Limit values of azimuth
+plt.figure()
+az_1=90-90 
+az_2=110-90                  #Limit values of azimuth
 shot_azimuth_pos=shot_pos[(shot_pos['Azimuth']>az_1)&(shot_pos['Azimuth']<az_2)]
 sns.scatterplot(data=sou_rec_pos, x="GroupX", y="GroupY")
 sns.scatterplot(data=shot_azimuth_pos, x="GroupX", y="GroupY")
 sns.scatterplot(data=shot_azimuth_pos, x="SourceX", y="SourceY")
-#plt.show()
+plt.show()
 
 
 # ## Selecting traces for the azimuth bin
@@ -112,7 +112,7 @@ data_offset.plot.imshow('offset','time',cmap='gray', vmin=-1000, vmax=1000, orig
 
 # In[29]:
 
-
+plt.figure()
 import masw_functions as mf
 vmin=100.0 
 vmax=4001.0
