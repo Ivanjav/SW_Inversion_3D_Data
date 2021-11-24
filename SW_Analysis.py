@@ -4,13 +4,13 @@
 # ## Import packages
 
 # In[1]:
-#from IPython.display import display
+
 import pandas as pd
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
 import seaborn as sns
-#get_ipython().run_line_magic('matplotlib', 'inline')
+
 
 
 # ## Read data
@@ -25,10 +25,19 @@ seismic_data= xr.open_dataset("seismic_data_source_1000.nc")
 seismic_data
 
 
+# In[3]:
+
+
+rec_pos=sou_rec_pos.drop_duplicates(subset=['GroupX','GroupY'])
+sns.scatterplot(data=rec_pos, x="GroupX", y="GroupY")
+plt.show()
+rec_pos
+
+
 # ## Create new dimensions
 # Compute **Azimuth** and **Offset** from sources and receivers positions.
 
-# In[3]:
+# In[4]:
 
 
 pos_x=np.array(sou_rec_pos['SourceX']-sou_rec_pos['GroupX'], dtype='f')
@@ -42,18 +51,21 @@ sou_rec_pos
 
 # Histogram of the **Azimuth** for the source 1000.
 
-# In[4]:
+# In[5]:
+
+plt.figure()
 source=1000
 shot_pos=sou_rec_pos[sou_rec_pos['EnergySourcePoint']==source]
 shot_pos[['Azimuth']].plot.hist()
-#plt.show()
+plt.show()
 
 
 # ## Highligth position by azimuth bin
 # Show receivers fro the source 1000 with azimuth from 90 to 110.
 
-# In[5]:
-plt.figure()
+# In[6]:
+
+
 az_1=90 
 az_2=110                  #Limit values of azimuth
 shot_azimuth_pos=shot_pos[(shot_pos['Azimuth']>az_1)&(shot_pos['Azimuth']<az_2)]
@@ -66,7 +78,7 @@ plt.show()
 # ## Selecting traces for the azimuth bin
 # Create the azimuth coordinate for the DataSet **seismic_data**
 
-# In[6]:
+# In[7]:
 
 
 seismic_data["azimuth"] = ("azimuth",  shot_pos['Azimuth'])
@@ -77,9 +89,9 @@ seismic_data
 
 # Select DataArray **data_azimuth** from the DataSet **seimisc_data** in the azimuth bin.
 
-# In[7]:
+# In[8]:
 
-
+plt.figure()
 data = seismic_data.where((seismic_data.azimuth>az_1)&(seismic_data.azimuth<az_2), drop=True)  #Select traces for the azimuth bin
 data_azimuth = data.data.sortby('azimuth') #Sort DataArray by azimuth
 data_azimuth
@@ -87,22 +99,23 @@ data_azimuth
 
 # Plot the shot gather foe the azimuth bin sort by azimuth.
 
-# In[8]:
-plt.figure()
+# In[9]:
+
+
 data_azimuth.plot.imshow('azimuth','time',cmap='gray', vmin=-1000, vmax=1000, origin='upper')
+
 
 # ## Sort the data by offset
 # Select DataArray **data_offset** from the DataSet **data** in the azimuth bin.
 
-# In[9]:
-
+# In[10]:
 
 data=data.swap_dims({"azimuth": "offset"})
 data_offset = data.data.sortby('offset') #Sort DataArray by offset
-data_offset
 
 
-# In[10]:
+
+# In[11]:
 
 plt.figure()
 data_offset.plot.imshow('offset','time',cmap='gray', vmin=-1000, vmax=1000, origin='upper')
@@ -110,13 +123,13 @@ data_offset.plot.imshow('offset','time',cmap='gray', vmin=-1000, vmax=1000, orig
 
 # Plot the shot gather for the azimuth bin sort by offset.
 
-# In[29]:
+# In[12]:
 
 plt.figure()
 import masw_functions as mf
 vmin=100.0 
 vmax=4001.0
-fmin=1.0 
+fmin=1.1
 fmax=8.0
 pstep=2e-5
 Nf=8001
@@ -128,7 +141,50 @@ plt.xlabel("Frequency (Hz)")
 plt.ylabel("Phase velocity (m/s)")
 
 
-# In[30]:
+# In[13]:
+
 import masw_functions as mf
-Xobs=mf.AutomaticPicking(D,threshold=0.8,num=30,fig=True)
+Xobs=mf.AutomaticPicking(D,threshold=0.9,num=15,fig=True,reg=True)
+
+
+# In[14]:
+
+
+Nh=10
+(vsia,hia,zia)=mf.InitialModel(Xobs,Nh)
+plt.rcParams['figure.figsize'] = [6, 6]
+plt.figure()
+plt.step(np.append(vsia,vsia[-1]),zia,label='Initial model',color='blue')
+plt.gca().invert_yaxis()
+plt.legend()
+plt.xlabel("S-wave velocity (m/s)")
+plt.ylabel("Depth (m)")
+
+
+# In[ ]:
+
+
+rps=2.5
+alpha=15
+n_iter=20
+rhoia=2*np.ones(np.size(vsia))
+dh=1.0
+(vsfa,vpfa,e)=mf.sw_inversion(Xobs[:,1],Xobs[:,0],vsia,rhoia,hia,rps,n_iter,alpha,dh)
+
+plt.figure()
+plt.rcParams['figure.figsize'] = [15, 6]
+fig, axs = plt.subplots(1,2)
+axs[0].step(np.append(vsia,vsia[-1]),zia, color='blue', label='Initial')
+axs[0].step(np.append(vsfa,vsfa[-1]),zia, color='green', label='Inversion')
+axs[0].set(xlabel='S-wave velocity (m/s)', ylabel='Depth (m)')
+axs[0].legend()
+axs[0].invert_yaxis()
+
+cRia=mf.forward_dispersion(vsia,rps*vsia,rhoia,hia,Xobs[:,0])
+cRfa=mf.forward_dispersion(vsfa,rps*vsfa,rhoia,hia,Xobs[:,0])
+axs[1].plot(Xobs[:,0], Xobs[:,1], 'o--', color='black', label='Observed')
+axs[1].plot(Xobs[:,0], cRia, 'o--', color='blue', label='Initial')
+axs[1].plot(Xobs[:,0], cRfa, 'o--', color='green', label='Inversion')
+axs[1].set(xlabel='Frequency (Hz)', ylabel='Phase velocity (m/s)')
+axs[1].legend()
 

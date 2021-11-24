@@ -274,7 +274,7 @@ def DispersionSpectrum(data,v,fmin,fmax,Nf,pstep):
     dt=np.diff(time[1:3])
     FXdata= np.fft.fft(data.data,Nf,axis=1)
     freq = np.fft.fftfreq(Nf, d=dt)
-    dx=xr.DataArray(FXdata, coords=[np.array(data.offset), freq], dims=["offset", "freq"])
+    dx=xr.DataArray(FXdata, coords=[np.array(data[data.dims[0]]), freq], dims=["offset", "freq"])
     p=np.arange(1/v[-1],1/v[0]+pstep,pstep)
     da=dx.where((dx.freq >= fmin )*(dx.freq <= fmax), drop=True)
     mp=adjLRT(da,p)
@@ -317,7 +317,7 @@ def InitialModel(pts,Nh):
     zi = np.append(zi,zi[-1]+L[0]-L[1])
     return(vsi,hi,zi)
 
-def AutomaticPicking(D,threshold,num,fig):
+def AutomaticPicking(D,threshold,num,fig,reg):
     # Clustering
     from sklearn.preprocessing import StandardScaler
     from sklearn.preprocessing import PolynomialFeatures
@@ -336,7 +336,7 @@ def AutomaticPicking(D,threshold,num,fig):
     poly = PolynomialFeatures(5)
     scaler.fit(poly.fit_transform(X))
     X_scaled = scaler.transform(poly.fit_transform(X))
-    dbscan = DBSCAN(eps=1.0,min_samples=1000)
+    dbscan = DBSCAN()
     clusters = dbscan.fit_predict(X_scaled)
     # Classification
     df1 = pd.DataFrame(np.concatenate((clusters.reshape(np.size(clusters),1),X_scaled),axis=1))
@@ -349,24 +349,34 @@ def AutomaticPicking(D,threshold,num,fig):
     Xobs=Xobs[ind]
     Xobs=Xobs.drop(columns=['amp'])
     # Regression
-    from sklearn.linear_model import LinearRegression
-    poly = PolynomialFeatures(5)
-    scaler.fit(poly.fit_transform(Xobs['freq'].to_numpy().reshape(-1,1)))
-    X_scaled = scaler.transform(poly.fit_transform(Xobs['freq'].to_numpy().reshape(-1,1)))
-    model = LinearRegression().fit(X_scaled, Xobs['vel'])
-    Yobs = model.predict(X_scaled)
-    idy=np.asarray(np.where(np.sign(np.diff(Yobs))==-1)).ravel()
-    Xobs=Xobs.to_numpy()
-    fsta=Xobs[idy[0],0]
-    fend=Xobs[idy[-1],0]
-    freq=np.linspace(fsta, fend, num, endpoint=True)
-    #Xobs=Xobs.to_numpy()
-    #Xobs=Xobs[idy,:]
-    #Xobs[:,1]=Yobs[idy]
-    pts=np.zeros((num,2))
-    cR=model.predict(scaler.transform(poly.fit_transform(freq.reshape(-1,1))))
-    pts[:,0]=freq
-    pts[:,1]=cR
+    if reg:
+        from sklearn.linear_model import LinearRegression
+        poly = PolynomialFeatures(5)
+        scaler.fit(poly.fit_transform(Xobs['freq'].to_numpy().reshape(-1,1)))
+        X_scaled = scaler.transform(poly.fit_transform(Xobs['freq'].to_numpy().reshape(-1,1)))
+        model = LinearRegression().fit(X_scaled, Xobs['vel'])
+        Yobs = model.predict(X_scaled)
+        idy=np.asarray(np.where(np.sign(np.diff(Yobs))==-1)).ravel()
+        Xobs=Xobs.to_numpy()
+        fsta=Xobs[idy[0],0]
+        fend=Xobs[idy[-1],0]
+        freq=np.linspace(fsta, fend, num, endpoint=True)
+        #Xobs=Xobs.to_numpy()
+        #Xobs=Xobs[idy,:]
+        #Xobs[:,1]=Yobs[idy]
+        pts=np.zeros((num,2))
+        cR=model.predict(scaler.transform(poly.fit_transform(freq.reshape(-1,1))))
+        pts[:,0]=freq
+        pts[:,1]=cR
+    else :
+        from scipy import interpolate
+        Xobs=Xobs.to_numpy()
+        f = interpolate.interp1d(Xobs[:,0], Xobs[:,1], kind='cubic')
+        freq=np.linspace(Xobs[0,0], Xobs[-1,0], num, endpoint=True)
+        pts=np.zeros((num,2))
+        pts[:,0]= freq
+        pts[:,1]= f(freq)
+        #pts=Xobs.to_numpy()
     if fig :
         fig, axs = plt.subplots(2, 2)
         axs[0, 0].set_title("Binarization (threshold=0.8)")
