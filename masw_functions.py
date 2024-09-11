@@ -317,7 +317,7 @@ def InitialModel(pts,Nh):
     zi = np.append(zi,zi[-1]+L[0]-L[1])
     return(vsi,hi,zi)
 
-def AutomaticPicking(D,threshold,num,fig,reg):
+def AutomaticPicking(D,threshold,eps,num,fig,reg,color='jet'):
     # Clustering
     from sklearn.preprocessing import StandardScaler
     from sklearn.preprocessing import PolynomialFeatures
@@ -336,7 +336,7 @@ def AutomaticPicking(D,threshold,num,fig,reg):
     poly = PolynomialFeatures(5)
     scaler.fit(poly.fit_transform(X))
     X_scaled = scaler.transform(poly.fit_transform(X))
-    dbscan = DBSCAN()
+    dbscan = DBSCAN(eps=eps)
     clusters = dbscan.fit_predict(X_scaled)
     # Classification
     df1 = pd.DataFrame(np.concatenate((clusters.reshape(np.size(clusters),1),X_scaled),axis=1))
@@ -381,14 +381,14 @@ def AutomaticPicking(D,threshold,num,fig,reg):
         fig, axs = plt.subplots(2, 2)
         axs[0, 0].set_title("Binarization (threshold=0.8)")
         axs[0, 0].plot(X[:, 0], X[:, 1],'o',color='red')
-        axs[0, 1].set_title("Clustering with DBSCAN (eps=0.5, poly=5)")
+        axs[0, 1].set_title(f"Clustering with DBSCAN (eps={eps})")
         axs[0, 1].scatter(X[:, 0], X[:, 1], c=clusters, s=60)
         axs[1, 0].set_title("Cluster selection")
-        D.plot.imshow(D.dims[1],D.dims[0],cmap='viridis', origin='lower',add_colorbar=False, ax=axs[1,0])
-        axs[1, 0].plot(X[idx,0],X[idx,1],'o',color='red')
+        D.plot.imshow(D.dims[1],D.dims[0],cmap=color, origin='lower',add_colorbar=False, ax=axs[1,0])
+        axs[1, 0].plot(X[idx,0],X[idx,1],'o',color='k')
         axs[1, 1].set_title("Points selection")
-        D.plot.imshow(D.dims[1],D.dims[0],cmap='viridis', origin='lower',add_colorbar=False, ax=axs[1,1])
-        axs[1, 1].plot(pts[:,0],pts[:,1],'o',color='red')
+        D.plot.imshow(D.dims[1],D.dims[0],cmap=color, origin='lower',add_colorbar=False, ax=axs[1,1])
+        axs[1, 1].plot(pts[:,0],pts[:,1],'o--',color='k')
         for ax in axs.flat:
             ax.set(xlabel='Frequency (Hz)', ylabel='Phase velocity (m/s)')
     return(pts)
