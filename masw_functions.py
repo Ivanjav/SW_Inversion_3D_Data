@@ -436,7 +436,7 @@ def adj_beam_LRT(data, dt, x, y, p, theta, fmin, fmax):
     #fs = 1 / dt
 
     # Step 3: Compute FFT of the data (along axis 0, padding to 8001)
-    Data = fft(data, 8001,axis=0)
+    Data = fft(data, 10001,axis=0)
 
     # Step 4: Get the dimensions of the transformed data
     Nf, Nr = Data.shape
