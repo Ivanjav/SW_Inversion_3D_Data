@@ -478,3 +478,113 @@ def adj_beam_LRT(data, dt, x, y, p, theta, fmin, fmax):
 
     return m, f, Pw
 
+def beamDispersion(data, dt, x, y, p, theta, fmin, fmax, minpeak=0.9):
+    """
+    Compute the beamformed data using an optimized approach.
+
+    Parameters:
+    data : ndarray
+        Input data array (time x receivers).
+    dt : float
+        Time sampling interval.
+    x : array-like
+        x-coordinates of receivers.
+    y : array-like
+        y-coordinates of receivers.
+    p : ndarray
+        Slowness values.
+    theta : ndarray
+        Angle values in degrees.
+    fmin : float
+        Minimum frequency.
+    fmax : float
+        Maximum frequency.
+
+    Returns:
+    m : ndarray
+        Beamformed data.
+    f : ndarray
+        Frequencies used.
+    Pw : ndarray
+        Power spectrum.
+    """
+    from scipy.fft import fft, fftfreq
+    from scipy.signal import find_peaks
+    from scipy.interpolate import interp2d
+
+    # Convert x and y to NumPy arrays
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    # Step 1: Convert theta from degrees to radians
+    theta = theta * 2 * np.pi / 360
+
+    # Step 2: Sampling frequency
+    #fs = 1 / dt
+
+    # Step 3: Compute FFT of the data (along axis 0, padding to 8001)
+    Data = fft(data, 10001,axis=0)
+
+    # Step 4: Get the dimensions of the transformed data
+    Nf, Nr = Data.shape
+
+    # Step 5: Frequency vector
+    #freq = np.arange(0, Nf) / Nf * (fs/2)
+    freq = fftfreq(Nf,dt)
+
+    # Step 7: Lengths of p and theta
+    M = len(p)
+    N = len(theta)
+
+    # Step 8: Compute Lx (precompute for all j and l)
+    Lx = np.zeros((len(x), N * M), dtype=complex)
+
+    for j in range(M):
+        for l in range(N):
+            Lx[:, l + j * N] =  p[j] * (x*np.sin(theta[l]) + y*np.cos(theta[l]))
+    Lx = Lx.T
+    # Step 9: Find indices where frequency is between fmin and fmax
+    ind = np.where((freq >= fmin) & (freq <= fmax))[0]
+    f = freq[ind]
+
+    # Step 10: Compute matrix `m`
+    m = np.zeros((N*M, len(ind)), dtype=complex)
+
+    # Step 6: Transpose Data
+    d = Data[ind,:].T  # This transposes the matrix
+
+    for k in range(len(f)):
+        w0 = 2 * np.pi * f[k]
+        #L = np.power(Lx, w0)
+        L = np.exp(-1j*w0*Lx)
+        m[:, k] = L @ d[:, k]
+
+    # Step 11: Reshape `m` into 3D array and compute the power spectrum
+    P = m.reshape(M, N, len(f))
+    Pw = np.abs(P) ** 2
+    sumP = np.max(Pw, axis=1)  # Summing along the first axis
+    Pn = (sumP - np.min(sumP, axis=0)) / (np.max(sumP, axis=0) - np.min(sumP, axis=0))
+
+
+    # Initialize empty lists for xp and xf
+    xp = np.array([])
+    xf = np.array([])
+
+    # Assume Pw_LRT, f_LRT, and p are already defined as numpy arrays
+    for idf in range(len(f)):
+        # Take the maximum along the first axis (axis=0)
+        Pw_LRTn = np.max(Pw[:, :, idf], axis=1)
+        
+        # Normalize Pw_LRTn
+        Pw_LRTn = Pw_LRTn / np.max(Pw_LRTn)
+        
+        # Find local maxima where Pw_LRTn > 0.9
+        peaks, _ = find_peaks(Pw_LRTn)
+        idp = peaks[Pw_LRTn[peaks] > minpeak]
+        
+        # Append corresponding values to xp and xf
+        xp = np.append(xp, p[idp])  # Append values from p[idp] to xp
+        xf = np.append(xf, np.full(len(idp), f[idf]))  # Repeat freq[idf] and append to xf
+        Xobs=np.column_stack((xf, 1/xp))
+
+    return Pn, f, Xobs
